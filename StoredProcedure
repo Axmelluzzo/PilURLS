@@ -1,0 +1,268 @@
+
+
+
+
+
+
+
+
+
+                                        --                          Idea is to grab information from the paylaod, disect all of the Field names as "X"              --
+                                        --                          Then, we need to pull the columns already in Reporting Table as "Y"                             --
+                                        --                          IF X==Y then insert the specific node of JSON as is,                                            --
+                                        --                          ELSEIF X<>Y then ADD COLUMN fieldname varchar(20)                                               --
+                                        --                          AND insert the specific node of JSON                                                            --
+
+
+
+--                             https://p-tableau.sys.cigna.com/#/site/CIMA/views/MemberMonthURLRepository/MemberMonthMBR_MTH?Cust%20St%20Cd=CA
+
+
+-- STEP 1
+--          Instantiate the function
+
+CREATE function MyStoredFunction(payload json) RETURNS AS $$
+
+    BEGIN
+
+-- STEP 2
+--          Create first instance of Reporting Table (will be removed from FUNCTION)
+
+CREATE TABLE Reporting_Table (
+lan varchar(6),
+comment varchar(1000)
+);
+
+
+-- STEP 3
+--          Grab all values from payload FIELD NAME
+         select distinct value->>'fieldName' as field_names from tableauextension cross join jsonb_array_elements(payload::jsonb);
+
+
+-- STEP 3.5
+--          Grab all column values from the Reporting Table
+         select distinct attname as Reporting_Table_field_names from pg_attribute where attrelid = 'Reporting_Table'::regclass AND attnum > 0 AND NOT attisdropped;
+
+
+-- STEP 4
+--          Associate values with those FIELD NAMES
+         select distinct value->>'fieldName' as field_names, value->>'value'  as field_values from tableauextension cross join jsonb_array_elements(payload::jsonb);
+
+
+--STEP 5
+--          Get a distinct count of field_names from the original tableauextension table
+        select count(distinct value->>'fieldName') as Field_Names_Distinct from tableauextension cross join jsonb_array_elements(payload::jsonb);
+
+        
+--STEP 6
+--          Get a distinct count of columns from the Reporting_Table
+        select count(distinct attname) as Reporting_Table_Distinct from pg_attribute where attrelid = 'reporting_table'::regclass AND attnum > 0 AND NOT attisdropped;
+
+
+
+
+-- STEP 4
+--          
+                    IF (select distinct value->>'fieldName' as field_names from tableauextension cross join jsonb_array_elements(payload::jsonb))
+                   <>
+                   (select distinct attname as Reporting_Table_field_names from pg_attribute where attrelid = 'Reporting_Table'::regclass AND attnum > 0 AND NOT attisdropped)
+                   THEN
+                   ALTER TABLE Reporting_Table
+                        ADD COLUMN (select distinct value->>'fieldName' as field_names from tableauextension cross join jsonb_array_elements(payload::jsonb));
+
+
+
+
+
+
+
+
+
+
+
+--Compare the current column names to the new field names to verify if they exist or not.
+--          If they dont exist, then create the column and insert the value. ELSE, insert the value
+--          where the value's name == column name.
+
+
+            WHILE Reporting_Table_Distinct > Field_Names_Distinct LOOP
+                 IF (select distinct value->>'fieldName' as field_names from tableauextension cross join jsonb_array_elements(payload::jsonb))
+                   <>
+                   (select distinct attname as Reporting_Table_field_names from pg_attribute where attrelid = 'Reporting_Table'::regclass AND attnum > 0 AND NOT attisdropped)
+                   THEN
+                    -- Insert for/while loop here for fieldname column/value table
+                   ALTER TABLE Reporting_Table
+                        ADD COLUMN (select distinct value->>'fieldName' as field_names from tableauextension cross join jsonb_array_elements(payload::jsonb));
+                        WHERE 
+                    INSERT INTO REPORTINGTABLE VALUES (STAGINGTABLE.LAN, STAGINGTABLE.Comment, STAGINGTABLE.FieldValue) 
+                        WHERE REPORTINGTABLECOLUMNNAMES.col == STAGINGTABLE.FieldName;
+
+                ELSE IF STAGINGTABLECOLUMNNAMES == REPORTINGTABLECOLUMNNAMES THEN
+                INSERT INTO REPORTINGTABLE VALUES (STAGINGTABLE.LAN, STAGINGTABLE.Comment, STAGINGTABLE.FieldValue) 
+                    WHERE REPORTINGTABLECOLUMNNAMES.col == STAGINGTABLE.FieldName;
+
+                ELSE RETURN
+
+                END IF;
+
+            END LOOP;
+
+     END
+     $$
+     
+
+
+-- STEP 5
+--          Join the end REPORTING table to the Original data source
+
+
+
+
+-- STEP 6
+--          Find elegant way to add in comments to tooltips
+--              -- What will it look like when there is no commment?
+--              -- What will it looks like where there are multiple comments?
+--              -- How will we scale this out to be over time?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+select count(distinct value->>'fieldName') as field_names from tableauextension cross join jsonb_array_elements(payload::jsonb);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+select count(distinct attname) from pg_attribute where attrelid = 'tableauextension'::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum; AS REPORTDISTINCT
+
+
+
+
+
+
+
+-- STEP 4
+--          Grab counts of field? Unsure why 
+
+
+
+        -- distinct column names in REPORTINGTABLE
+        select count(distinct attname) from pg_attribute where attrelid = 'Reporting_Table'::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum; AS REPORTDISTINCT
+
+        -- distinct field name values in STAGINGTABLE
+        select count(distinct FieldName) from STAGINGTABLE AS STAGEDISTINCT
+
+        -- What to do with Counter?
+
+                -- Make sure complete number of columns is == distinct count of FieldNames + 2 (for LAN ID and Comment)
+
+        IF REPORTDISTINCT <> STAGEDISTINCT
+            THEN MyStoredFunction();
+        ELSEIF REPORTDISTINCT == STAGEDISTINCT
+            THEN 
+        END IF;
+
+
+-- Pivot Fieldname
+-- SET THE WHILE LOOP VARIABLES TO THE COUNTERS
+-- JOIN STAGE & REPORTING ON REPORT.COL TO STAGING.FIELDNAME
+
+
+
+
+
+
+
+
+
+
+-- Compare REPORTINGTABLE column name to STAGINGTABLE.FieldValue
+
+
+-- Set a while Loop for validity of REPORTINGTABLECOLUMNNAMES == STAGINGCOLUMNNAMES
+--      IF TRUE ==
+--      INSERT INTO REPORTINGTABLE VALUES (STAGINGTABLE.LAN, STAGINGTABLE.Comment, STAGINGTABLE.FieldValue) WHERE REPORTINGTABLECOLUMNNAMES.col == STAGINGTABLE.FieldName;
+--                  ELSEIF REPORTINGTABLECOLUMNNAMES.col <> STAGINGTABLE.FieldName 
+--                      ALTER TABLE REPORTINGTABLE ADDCOLUMN (FieldName)
+
+--      ELSE ==
+--      Shutdown loop
+--
+--
+--      Scalability report wise -
+--          Query for report name as table,
+--              TRUE -- write the function tot hat table
+--              False -- Create new talbe, then write function to that 4WW
+-- 
+--
+
+
+
+
+                                                                                    --    -> RETURNS AS JSON    --
+                                                                                    --   ->> RETURNS AS STRING  --
+
+
+
+
+
+
+
+
+
+
+
+--                                                                                      TO RETURN COLUMNS OF A TABLE:
+
+
+                                                                                    --  SELECT attrelid::regclass AS tbl
+                                                                                    --         , attname            AS col
+                                                                                    --      , atttypid::regtype  AS datatype
+                                                                                    --      FROM   pg_attribute
+                                                                                    --  WHERE  attrelid = 'tableauextension'::regclass  
+                                                                                    --  AND    attnum > 0
+                                                                                    --  AND    NOT attisdropped
+                                                                                    --  ORDER  BY attnum;
+
+
+
+
+                                                                                    -- SAMPLE OUTPUT
+                                                                                    -- tbl             col             datatype
+                                                                                    --tblu             LAN               character varying
+                                                                                    --tblu             Comment           character varying
+                                                                                    --tblu             Payload           character varying
+                                                                                    --
+
+

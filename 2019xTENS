@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Respond to Events</title>
+	
+    <script type="text/javascript" 
+        src="JS/tableau.js"></script>
+        
+	<script src="https://ajax.googleapis.com/ajax/libs/d3js/5.7.0/d3.min.js"></script>
+    
+    <script type="text/javascript">
+
+
+        console.log("This can appear");
+
+        
+        
+        function initViz() {
+            var containerDiv = document.getElementById("vizContainer"),
+                url = "https://p-tableau.sys.cigna.com/t/CIMA/views/DATASLAYER1/Dashboard?iframeSizedToWindow=true&:embed=y&:showAppBanner=false&:display_count=no&:showVizHome=no",
+                options = {
+                    "Academic Year": "",
+                    hideTabs: true,
+                    onFirstInteractive: function () {
+                        listenToMarksSelection();
+                        listToFilterSelection();
+                    }
+                };
+            
+            viz = new tableau.Viz(containerDiv, url, options);
+        }
+
+        function listenToMarksSelection() {
+            console.log("thisisheretootohear!");
+            viz.addEventListener(tableau.TableauEventName.MARKS_SELECTION, onMarksSelection);
+    }
+
+
+
+function listToFilterSelection(){
+    console.log("THEREALDEAL");
+    viz.addEventListener(tableau.TableauEventName.FILTER_CHANGE, FilterDesc);
+        }
+
+
+
+            function FilterDesc(filterEvent){
+
+              return filterEvent.getFilterAsync().then(reportSelectedFilters);
+
+            }
+
+            function reportSelectedFilters(filters){
+                console.log("FILTERS CHANGED",event);
+                return filters.getFilterName().then(console.log(filters));
+            }
+
+     
+
+
+        function onMarksSelection(marksEvent) {
+            return marksEvent.getMarksAsync().then(reportSelectedMarks);
+        }
+
+        function reportSelectedMarks(marks) {
+            var html = ""; 
+            
+            for (var markIndex = 0; markIndex < marks.length; markIndex++) {
+                var pairs = marks[markIndex].getPairs();
+                html += "<b>Mark " + markIndex + ":</b><ul>";
+
+                for (var pairIndex = 0; pairIndex < pairs.length; pairIndex++) {
+                    var pair = pairs[pairIndex];
+                    html += "<li><b>Field Name:</b> " + pair.fieldName;
+                    html += "<br/><b>Value:</b> " + pair.formattedValue + "</li>";
+                }
+
+                html += "</ul>";
+            }
+
+
+		var inni = JSON.stringify(pairs);
+		console.log(inni);
+            var infoDiv = document.getElementById('markDetails');
+            infoDiv.innerHTML = html;
+
+		document.getElementById('hiddenfieldzz').value = inni;
+
+
+
+function splitMulti(str, tokens){
+        var tempChar = tokens[0]; 
+        for(var i = 1; i < tokens.length; i++){
+            str = str.split(tokens[i]).join(tempChar);
+        }
+        str = str.split(tempChar);
+        return str;
+}
+
+
+	Atr = splitMulti(html, ['<b>','</b>','<li>','</li>','<ul>','</ul>','<br/>','Mark 0:']);
+
+        
+		
+
+}
+    </script>
+</head>
+
+<body onload="initViz();">
+
+
+<div id="vizContainer" style="height: 500px; position: absolute;"></div>
+<form action= "script.php" name="my_form"  id= "my_form" method="POST" style="float: right;">
+<div id="markDetails" name="markDetails" style="float:right; font-family: verdana; font-size: 20xp;">The mark you've selected is:</div>
+LAN ID: <input type="text" id="LANID" name="LANID"><br>
+<br>
+Comment: <input type="text" id="Comment" name="Comment"><br>
+<input type="hidden" id="hiddenfield" name="hiddenfield" value= "This is test object">
+<br>
+<input type="hidden" id="hiddenfieldzz" name="hiddenfieldzz">
+<input type="submit" value="Enter Comment">
+
+</form>
+
+
+
+<script text="text/javascript">
+
+
+</script>
+
+</body>
+</html>
